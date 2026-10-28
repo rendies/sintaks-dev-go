@@ -16,8 +16,8 @@ const (
 	DefaultBaseURL = "https://api.sintaks.dev"
 	// DefaultChatModel and DefaultImageModel are sent when a request leaves
 	// Model empty. The gateway maps them to its configured upstream models.
-	DefaultChatModel      = "claude-sonnet-5-5"
-	DefaultImageModel     = "stable-image-core"
+	DefaultChatModel      = "gpt-5-5"
+	DefaultImageModel     = "gpt-5-5"
 	DefaultEmbeddingModel = "qwen3-embedding-0-6b"
 
 	userAgent = "sintaksdev-go/1"
