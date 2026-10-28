@@ -172,3 +172,17 @@ func (c *Client) send(ctx context.Context, path string, body any, stream bool) (
 	}
 	return resp, nil
 }
+
+// Response calls the OpenAI Responses API (POST /v1/responses).
+func (c *Client) Response(ctx context.Context, req ResponseRequest) (*ResponseResult, error) {
+	if req.Model == "" {
+		req.Model = c.chatModel
+	}
+	var out ResponseResult
+	id, err := c.do(ctx, "/v1/responses", req, &out)
+	if err != nil {
+		return nil, err
+	}
+	out.RequestID = id
+	return &out, nil
+}

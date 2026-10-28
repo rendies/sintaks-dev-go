@@ -1,5 +1,7 @@
 package sintaksdev
 
+import "encoding/json"
+
 // Message roles.
 const (
 	RoleSystem    = "system"
@@ -140,3 +142,23 @@ type EmbeddingUsage struct {
 
 // Ptr returns a pointer to v, for optional request fields.
 func Ptr[T any](v T) *T { return &v }
+
+// ResponseRequest is an OpenAI Responses API request (POST /v1/responses).
+type ResponseRequest struct {
+	Model           string   `json:"model"`
+	Input           string   `json:"input"`
+	Instructions    string   `json:"instructions,omitempty"`
+	MaxOutputTokens *int     `json:"max_output_tokens,omitempty"`
+	Temperature     *float64 `json:"temperature,omitempty"`
+	TopP            *float64 `json:"top_p,omitempty"`
+}
+
+type ResponseResult struct {
+	ID        string          `json:"id"`
+	Object    string          `json:"object"`
+	Status    string          `json:"status"`
+	Model     string          `json:"model"`
+	Output    json.RawMessage `json:"output"`
+	Usage     *Usage          `json:"usage"`
+	RequestID string          `json:"-"`
+}
