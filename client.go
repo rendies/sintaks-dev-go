@@ -16,19 +16,21 @@ const (
 	DefaultBaseURL = "https://api.sintaks.dev"
 	// DefaultChatModel and DefaultImageModel are sent when a request leaves
 	// Model empty. The gateway maps them to its configured upstream models.
-	DefaultChatModel  = "claude-sonnet-5-5"
-	DefaultImageModel = "stable-image-core"
+	DefaultChatModel      = "claude-sonnet-5-5"
+	DefaultImageModel     = "stable-image-core"
+	DefaultEmbeddingModel = "qwen3-embedding-0-6b"
 
 	userAgent = "sintaksdev-go/1"
 )
 
 // Client calls the sintaks.dev API. It is safe for concurrent use.
 type Client struct {
-	apiKey     string
-	baseURL    string
-	httpClient *http.Client
-	chatModel  string
-	imageModel string
+	apiKey         string
+	baseURL        string
+	httpClient     *http.Client
+	chatModel      string
+	imageModel     string
+	embeddingModel string
 }
 
 type Option func(*Client)
@@ -52,14 +54,19 @@ func WithImageModel(model string) Option {
 	return func(c *Client) { c.imageModel = model }
 }
 
+func WithEmbeddingModel(model string) Option {
+	return func(c *Client) { c.embeddingModel = model }
+}
+
 // New returns a client authenticating with apiKey.
 func New(apiKey string, opts ...Option) *Client {
 	c := &Client{
-		apiKey:     apiKey,
-		baseURL:    DefaultBaseURL,
-		httpClient: &http.Client{},
-		chatModel:  DefaultChatModel,
-		imageModel: DefaultImageModel,
+		apiKey:         apiKey,
+		baseURL:        DefaultBaseURL,
+		httpClient:     &http.Client{},
+		chatModel:      DefaultChatModel,
+		imageModel:     DefaultImageModel,
+		embeddingModel: DefaultEmbeddingModel,
 	}
 	for _, o := range opts {
 		o(c)
@@ -102,6 +109,20 @@ func (c *Client) GenerateImage(ctx context.Context, req ImageRequest) (*ImageRes
 	}
 	var out ImageResponse
 	id, err := c.do(ctx, "/v1/images/generations", req, &out)
+	if err != nil {
+		return nil, err
+	}
+	out.RequestID = id
+	return &out, nil
+}
+
+// Embedding returns embedding vectors for the input texts, in request order.
+func (c *Client) Embedding(ctx context.Context, req EmbeddingRequest) (*EmbeddingResponse, error) {
+	if req.Model == "" {
+		req.Model = c.embeddingModel
+	}
+	var out EmbeddingResponse
+	id, err := c.do(ctx, "/v1/embeddings", req, &out)
 	if err != nil {
 		return nil, err
 	}

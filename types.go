@@ -110,5 +110,33 @@ type Image struct {
 	URL string `json:"url"`
 }
 
+// EmbeddingRequest is an OpenAI-compatible embeddings request. Input accepts
+// one or more texts; EncodingFormat is "float" (the default) when empty.
+type EmbeddingRequest struct {
+	Model          string   `json:"model"`
+	Input          []string `json:"input"`
+	EncodingFormat string   `json:"encoding_format,omitempty"`
+	Dimensions     *int     `json:"dimensions,omitempty"`
+}
+
+type EmbeddingResponse struct {
+	Object    string          `json:"object"`
+	Data      []EmbeddingData `json:"data"`
+	Model     string          `json:"model"`
+	Usage     *EmbeddingUsage `json:"usage"`
+	RequestID string          `json:"-"`
+}
+
+type EmbeddingData struct {
+	Object    string    `json:"object"`
+	Index     int       `json:"index"`
+	Embedding []float64 `json:"embedding"`
+}
+
+type EmbeddingUsage struct {
+	PromptTokens int `json:"prompt_tokens"`
+	TotalTokens  int `json:"total_tokens"`
+}
+
 // Ptr returns a pointer to v, for optional request fields.
 func Ptr[T any](v T) *T { return &v }

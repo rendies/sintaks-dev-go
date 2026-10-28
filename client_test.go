@@ -255,3 +255,33 @@ func TestTransportAndDecodeErrors(t *testing.T) {
 		t.Fatal("expected bad URL error")
 	}
 }
+
+func TestEmbedding(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/embeddings" {
+			t.Errorf("path = %q", r.URL.Path)
+		}
+		var req EmbeddingRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			t.Fatal(err)
+		}
+		if req.Model != "qwen3-embedding-0-6b" || len(req.Input) != 2 {
+			t.Errorf("body = %+v", req)
+		}
+		w.Header().Set("X-Request-ID", "req_emb_test")
+		_, _ = io.WriteString(w, `{"object":"list","data":[{"object":"embedding","index":0,"embedding":[0.1,0.2]},{"object":"embedding","index":1,"embedding":[0.3,0.4]}],"model":"qwen3-embedding-0-6b","usage":{"prompt_tokens":7,"total_tokens":7}}`)
+	}))
+	defer srv.Close()
+
+	client := New("sk-test", WithBaseURL(srv.URL))
+	resp, err := client.Embedding(context.Background(), EmbeddingRequest{Input: []string{"a", "b"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(resp.Data) != 2 || resp.Data[0].Embedding[1] != 0.2 || resp.Usage.PromptTokens != 7 {
+		t.Fatalf("resp = %+v", resp)
+	}
+	if resp.RequestID != "req_emb_test" {
+		t.Fatalf("request id = %q", resp.RequestID)
+	}
+}
