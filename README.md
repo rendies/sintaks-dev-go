@@ -35,8 +35,25 @@ func main() {
 }
 ```
 
-Use `ChatCompletionStream` for server-sent events and `GenerateImage` for image
-URLs. See the package documentation and `examples/basic` for more examples.
+## Embeddings
+
+```go
+embeddings, err := client.Embedding(context.Background(), sintaksdev.EmbeddingRequest{
+    Input: []string{"Serverless Postgres with sintaks.dev"},
+})
+if err != nil {
+    log.Fatal(err)
+}
+fmt.Println(len(embeddings.Data[0].Embedding)) // 1024 (qwen3-embedding-0-6b)
+```
+
+The default embedding model is `qwen3-embedding-0-6b` (1024 dimensions);
+override with `sintaksdev.WithEmbeddingModel("...")`. `encoding_format` and
+`dimensions` are supported as optional fields.
+
+Use `ChatCompletionStream` for server-sent events, `GenerateImage` for image
+URLs, and `Embedding` for vector embeddings. See the package documentation
+and `examples/basic` for more examples.
 
 ## Development
 
