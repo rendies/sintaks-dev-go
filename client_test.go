@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -283,5 +284,58 @@ func TestEmbedding(t *testing.T) {
 	}
 	if resp.RequestID != "req_emb_test" {
 		t.Fatalf("request id = %q", resp.RequestID)
+	}
+}
+
+func TestEditImageMultipart(t *testing.T) {
+	var gotImage, gotMask, gotPrompt, gotModel, gotSize, gotFormat string
+	var gotN int
+	var gotCT string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/images/edits" {
+			t.Errorf("path = %s", r.URL.Path)
+		}
+		gotCT = r.Header.Get("Content-Type")
+		if err := r.ParseMultipartForm(4 << 20); err != nil {
+			t.Errorf("parse multipart: %v", err)
+			return
+		}
+		gotPrompt = r.FormValue("prompt")
+		gotModel = r.FormValue("model")
+		gotSize = r.FormValue("size")
+		gotFormat = r.FormValue("response_format")
+		gotN, _ = strconv.Atoi(r.FormValue("n"))
+		img := r.MultipartForm.File["image"]
+		if len(img) != 1 {
+			t.Errorf("image parts = %d", len(img))
+		} else {
+			gotImage = img[0].Filename
+		}
+		mask := r.MultipartForm.File["mask"]
+		if len(mask) != 1 {
+			t.Errorf("mask parts = %d", len(mask))
+		} else {
+			gotMask = mask[0].Filename
+		}
+		writeJSON(w, 200, map[string]any{"created": 1, "data": []any{map[string]any{"url": "https://cdn.sintaks.dev/img.png"}}})
+	}))
+	defer srv.Close()
+	c := New("sk-test", WithBaseURL(srv.URL+"/"))
+	if _, err := c.EditImage(context.Background(), ImageEditRequest{
+		Prompt:         "add a fountain",
+		Images:         []ImageFile{{Filename: "a.png", Content: []byte("PNG")}},
+		Masks:          []ImageFile{{Filename: "m.png", Content: []byte("MASK")}},
+		Model:          "gpt-image-1",
+		N:              2,
+		Size:           "1024x1024",
+		ResponseFormat: "url",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if gotPrompt != "add a fountain" || gotModel != "gpt-image-1" || gotSize != "1024x1024" || gotFormat != "url" || gotN != 2 || gotImage != "a.png" || gotMask != "m.png" {
+		t.Fatalf("got prompt=%q model=%q size=%q format=%q n=%d image=%q mask=%q", gotPrompt, gotModel, gotSize, gotFormat, gotN, gotImage, gotMask)
+	}
+	if !strings.HasPrefix(gotCT, "multipart/form-data") {
+		t.Fatalf("content-type = %q", gotCT)
 	}
 }

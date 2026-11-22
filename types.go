@@ -102,6 +102,31 @@ type ImageRequest struct {
 	Size   string `json:"size,omitempty"`
 }
 
+// ImageFile is one source image or mask part for an image edit. Filename is
+// the multipart filename; Content is the raw bytes. ContentType is optional
+// and defaults to application/octet-stream.
+type ImageFile struct {
+	Filename    string
+	Content     []byte
+	ContentType string
+}
+
+// ImageEditRequest is an OpenAI-compatible image edit (img2img/inpainting)
+// request. It is sent as multipart form-data. ResponseFormat is "url" (the
+// default when empty) or "b64_json".
+type ImageEditRequest struct {
+	Prompt        string
+	Model         string
+	N             int
+	Size          string
+	ResponseFormat string
+	Quality       string
+	Style         string
+	Background    string
+	Images        []ImageFile
+	Masks         []ImageFile
+}
+
 type ImageResponse struct {
 	Created   int64   `json:"created"`
 	Data      []Image `json:"data"`
@@ -109,7 +134,8 @@ type ImageResponse struct {
 }
 
 type Image struct {
-	URL string `json:"url"`
+	URL     string `json:"url"`
+	B64JSON string `json:"b64_json,omitempty"`
 }
 
 // EmbeddingRequest is an OpenAI-compatible embeddings request. Input accepts

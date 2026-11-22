@@ -52,8 +52,9 @@ override with `sintaksdev.WithEmbeddingModel("...")`. `encoding_format` and
 `dimensions` are supported as optional fields.
 
 Use `ChatCompletionStream` for server-sent events, `GenerateImage` for image
-URLs, and `Embedding` for vector embeddings. See the package documentation
-and `examples/basic` for more examples.
+URLs, `EditImage` for image edits (img2img/inpainting, multipart), and
+`Embedding` for vector embeddings. See the package documentation and
+`examples/basic` for more examples.
 
 ## Development
 

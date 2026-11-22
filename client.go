@@ -7,7 +7,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"mime/multipart"
 	"net/http"
+	"net/textproto"
+	"strconv"
 	"strings"
 )
 
@@ -116,6 +119,22 @@ func (c *Client) GenerateImage(ctx context.Context, req ImageRequest) (*ImageRes
 	return &out, nil
 }
 
+// EditImage edits images (img2img/inpainting) via POST /v1/images/edits.
+// The request is sent as multipart form-data. ResponseFormat "b64_json"
+// returns raw bytes; "url" (default) returns hosted URLs.
+func (c *Client) EditImage(ctx context.Context, req ImageEditRequest) (*ImageResponse, error) {
+	if req.Model == "" {
+		req.Model = c.imageModel
+	}
+	var out ImageResponse
+	id, err := c.doForm(ctx, "/v1/images/edits", req, &out)
+	if err != nil {
+		return nil, err
+	}
+	out.RequestID = id
+	return &out, nil
+}
+
 // Embedding returns embedding vectors for the input texts, in request order.
 func (c *Client) Embedding(ctx context.Context, req EmbeddingRequest) (*EmbeddingResponse, error) {
 	if req.Model == "" {
@@ -171,6 +190,93 @@ func (c *Client) send(ctx context.Context, path string, body any, stream bool) (
 		return nil, parseAPIError(resp)
 	}
 	return resp, nil
+}
+
+// doForm performs a multipart form-data request (e.g. image edits).
+func (c *Client) doForm(ctx context.Context, path string, req ImageEditRequest, out any) (string, error) {
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+
+	writeFiles := func(parts []ImageFile, name string) error {
+		for _, f := range parts {
+			filename := f.Filename
+			if filename == "" {
+				filename = name
+			}
+			h := make(textproto.MIMEHeader)
+			h.Set("Content-Disposition", fmt.Sprintf(`form-data; name=%q; filename=%q`, name, filename))
+			ct := f.ContentType
+			if ct == "" {
+				ct = "application/octet-stream"
+			}
+			h.Set("Content-Type", ct)
+			pw, err := mw.CreatePart(h)
+			if err != nil {
+				return err
+			}
+			if _, err := pw.Write(f.Content); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	if err := writeFiles(req.Images, "image"); err != nil {
+		return "", fmt.Errorf("sintaks: encode image parts: %w", err)
+	}
+	if err := writeFiles(req.Masks, "mask"); err != nil {
+		return "", fmt.Errorf("sintaks: encode mask parts: %w", err)
+	}
+	if err := mw.WriteField("prompt", req.Prompt); err != nil {
+		return "", fmt.Errorf("sintaks: encode form: %w", err)
+	}
+	if req.Model != "" {
+		_ = mw.WriteField("model", req.Model)
+	}
+	if req.N > 0 {
+		_ = mw.WriteField("n", strconv.Itoa(req.N))
+	}
+	if req.Size != "" {
+		_ = mw.WriteField("size", req.Size)
+	}
+	if req.ResponseFormat != "" {
+		_ = mw.WriteField("response_format", req.ResponseFormat)
+	}
+	if req.Quality != "" {
+		_ = mw.WriteField("quality", req.Quality)
+	}
+	if req.Style != "" {
+		_ = mw.WriteField("style", req.Style)
+	}
+	if req.Background != "" {
+		_ = mw.WriteField("background", req.Background)
+	}
+	if err := mw.Close(); err != nil {
+		return "", fmt.Errorf("sintaks: close form: %w", err)
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+path, &buf)
+	if err != nil {
+		return "", fmt.Errorf("sintaks: %w", err)
+	}
+	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
+	httpReq.Header.Set("Content-Type", mw.FormDataContentType())
+	httpReq.Header.Set("User-Agent", userAgent)
+	httpReq.Header.Set("Accept", "application/json")
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return "", fmt.Errorf("sintaks: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		return "", parseAPIError(resp)
+	}
+	id := resp.Header.Get("X-Request-ID")
+	if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
+		return id, fmt.Errorf("sintaks: decode response (request_id %s): %w", id, err)
+	}
+	return id, nil
 }
 
 // Response calls the OpenAI Responses API (POST /v1/responses).
