@@ -188,3 +188,31 @@ type ResponseResult struct {
 	Usage     *Usage          `json:"usage"`
 	RequestID string          `json:"-"`
 }
+
+// VideoRequest is an OpenAI-compatible video generation request
+// (POST /v1/videos). Video models are per-provider, so Model is required.
+type VideoRequest struct {
+	Model       string `json:"model"`
+	Prompt      string `json:"prompt"`
+	Seconds     *int   `json:"seconds,omitempty"`
+	Size        string `json:"size,omitempty"`
+	AspectRatio string `json:"aspect_ratio,omitempty"`
+	Audio       bool   `json:"audio,omitempty"`
+}
+
+// VideoJob is one async video generation job. Status transitions
+// queued -> in_progress -> completed | failed; completed jobs carry the
+// provider CDN URL.
+type VideoJob struct {
+	ID          string  `json:"id"`
+	Object      string  `json:"object"`
+	CreatedAt   int64   `json:"created_at"`
+	Status      string  `json:"status"`
+	Model       string  `json:"model,omitempty"`
+	Seconds     int     `json:"seconds,omitempty"`
+	URL         string  `json:"url,omitempty"`
+	Error       string  `json:"error,omitempty"`
+	CompletedAt *int64  `json:"completed_at,omitempty"`
+	Usage       *Usage  `json:"usage,omitempty"`
+	RequestID   string  `json:"-"`
+}

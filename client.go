@@ -279,6 +279,30 @@ func (c *Client) doForm(ctx context.Context, path string, req ImageEditRequest, 
 	return id, nil
 }
 
+// CreateVideo submits an async video generation job (POST /v1/videos) and
+// returns the queued job with its id; poll it with GetVideo.
+func (c *Client) CreateVideo(ctx context.Context, req VideoRequest) (*VideoJob, error) {
+	var out VideoJob
+	id, err := c.do(ctx, "/v1/videos", req, &out)
+	if err != nil {
+		return nil, err
+	}
+	out.RequestID = id
+	return &out, nil
+}
+
+// GetVideo polls one video job (GET /v1/videos/{id}). Completed jobs carry
+// the provider CDN URL in URL.
+func (c *Client) GetVideo(ctx context.Context, id string) (*VideoJob, error) {
+	var out VideoJob
+	requestID, err := c.do(ctx, "/v1/videos/"+id, nil, &out)
+	if err != nil {
+		return nil, err
+	}
+	out.RequestID = requestID
+	return &out, nil
+}
+
 // Response calls the OpenAI Responses API (POST /v1/responses).
 func (c *Client) Response(ctx context.Context, req ResponseRequest) (*ResponseResult, error) {
 	if req.Model == "" {

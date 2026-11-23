@@ -51,10 +51,28 @@ The default embedding model is `qwen3-embedding-0-6b` (1024 dimensions);
 override with `sintaksdev.WithEmbeddingModel("...")`. `encoding_format` and
 `dimensions` are supported as optional fields.
 
+## Videos
+
+```go
+job, err := client.CreateVideo(context.Background(), sintaksdev.VideoRequest{
+    Model:   "google/veo-3.1-lite-generate-001", // required
+    Prompt:  "a cat on a beach",
+    Seconds: sintaksdev.Ptr(4),
+})
+// job.Status == "queued"
+done, err := client.GetVideo(context.Background(), job.ID) // poll until completed
+fmt.Println(done.URL) // provider CDN URL
+```
+
+Video generation is asynchronous; poll `GetVideo` until
+`status == "completed"` (the job then carries the provider CDN URL) or
+`"failed"`.
+
 Use `ChatCompletionStream` for server-sent events, `GenerateImage` for image
-URLs, `EditImage` for image edits (img2img/inpainting, multipart), and
-`Embedding` for vector embeddings. See the package documentation and
-`examples/basic` for more examples.
+URLs, `EditImage` for image edits (img2img/inpainting, multipart),
+`Embedding` for vector embeddings, and `CreateVideo`/`GetVideo` for async
+video jobs. See the package documentation and `examples/basic` for more
+examples.
 
 ## Development
 

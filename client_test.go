@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -337,5 +338,52 @@ func TestEditImageMultipart(t *testing.T) {
 	}
 	if !strings.HasPrefix(gotCT, "multipart/form-data") {
 		t.Fatalf("content-type = %q", gotCT)
+	}
+}
+
+func TestVideoCreateAndGet(t *testing.T) {
+	var mu sync.Mutex
+	var createPath, getPath string
+	var createBody []byte
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		defer mu.Unlock()
+		switch r.URL.Path {
+		case "/v1/videos":
+			createPath = r.URL.Path
+			createBody, _ = io.ReadAll(r.Body)
+			_, _ = io.WriteString(w, `{"id":"vid_1","object":"video","created_at":1700000000,"status":"queued","model":"google/veo-3.1-lite-generate-001","seconds":4}`)
+		case "/v1/videos/vid_1":
+			getPath = r.URL.Path
+			_, _ = io.WriteString(w, `{"id":"vid_1","object":"video","created_at":1700000000,"status":"completed","model":"google/veo-3.1-lite-generate-001","url":"https://cdn.vercel/v.mp4"}`)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	client := New("sk-test", WithBaseURL(srv.URL))
+	secs := 4
+	job, err := client.CreateVideo(context.Background(), VideoRequest{Model: "google/veo-3.1-lite-generate-001", Prompt: "a cat", Seconds: &secs})
+	if err != nil {
+		t.Fatalf("CreateVideo: %v", err)
+	}
+	if job.ID != "vid_1" || job.Status != "queued" {
+		t.Fatalf("job = %+v", job)
+	}
+	var sent map[string]any
+	if err := json.Unmarshal(createBody, &sent); err != nil || sent["prompt"] != "a cat" || sent["seconds"] != float64(4) {
+		t.Fatalf("create body = %s (%v)", createBody, err)
+	}
+
+	done, err := client.GetVideo(context.Background(), "vid_1")
+	if err != nil {
+		t.Fatalf("GetVideo: %v", err)
+	}
+	if done.Status != "completed" || done.URL != "https://cdn.vercel/v.mp4" {
+		t.Fatalf("done = %+v", done)
+	}
+	if createPath != "/v1/videos" || getPath != "/v1/videos/vid_1" {
+		t.Fatalf("paths %q %q", createPath, getPath)
 	}
 }
